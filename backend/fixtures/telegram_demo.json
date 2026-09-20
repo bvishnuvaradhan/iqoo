@@ -1,0 +1,21 @@
+{
+  "name": "CSE 5th Sem Official",
+  "type": "public_supergroup",
+  "id": 123456789,
+  "messages": [
+    { "id": 1001, "type": "message", "date": "2026-09-18T10:40:00", "from": "Rahul", "text": "bro where are you" },
+    { "id": 1002, "type": "message", "date": "2026-09-18T10:41:00", "from": "Arjun", "text": "😂" },
+    { "id": 1003, "type": "message", "date": "2026-09-18T10:42:00", "from": "CR Amit", "text": "Guys sir said DBMS assignment 3 is due Friday" },
+    { "id": 1004, "type": "message", "date": "2026-09-18T10:43:00", "from": "Priya", "text": "Which assignment?" },
+    { "id": 1005, "type": "message", "date": "2026-09-18T10:44:00", "from": "CR Amit", "text": "Assignment 3", "reply_to_message_id": 1004 },
+    { "id": 1006, "type": "message", "date": "2026-09-18T11:00:00", "from": "Vikram", "text": "send notes" },
+    { "id": 1007, "type": "message", "date": "2026-09-18T14:30:00", "from": "CR Amit", "text": "OS internal moved to Monday" },
+    { "id": 1008, "type": "message", "date": "2026-09-18T14:31:00", "from": "Neha", "text": "ok" },
+    { "id": 1009, "type": "message", "date": "2026-09-18T14:32:00", "from": "Rahul", "text": "🔥" },
+    { "id": 1010, "type": "message", "date": "2026-09-18T15:00:00", "from": "Dr. Rajesh", "text": "Sir uploaded unit 4" },
+    { "id": 1011, "type": "message", "date": "2026-09-18T15:01:00", "from": "Arjun", "text": "thanks" },
+    { "id": 1012, "type": "message", "date": "2026-09-18T16:00:00", "from": "CR Amit", "text": "Reminder: ALM internal exam is on Sep 20" },
+    { "id": 1013, "type": "message", "date": "2026-09-18T16:15:00", "from": "Vikram", "text": "OS internal is September 24" },
+    { "id": 1014, "type": "message", "date": "2026-09-18T17:00:00", "from": "Priya", "text": "API integration is still pending. Rahul will finish it by September 27." }
+  ]
+}
