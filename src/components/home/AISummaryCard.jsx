@@ -24,7 +24,7 @@ const AISummaryCard = () => {
         
         {/* Top row */}
         <div className="flex items-center justify-between mb-4 relative z-10">
-          <AIIndicator variant="active" label="ContextAI" />
+          <AIIndicator variant="active" label="Nexora" />
           <Sparkles size={16} className="text-ai-blue" />
         </div>
 

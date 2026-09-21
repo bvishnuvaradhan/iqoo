@@ -14,7 +14,7 @@ export default function CaptureHub() {
     { icon: Mic, label: 'Voice', desc: 'Record lectures', color: 'text-ai-purple', bg: 'bg-ai-purple/10', action: () => setActiveModal({ title: 'Voice Capture', icon: Mic, color: 'text-ai-purple', bg: 'bg-ai-purple/20', desc: 'Real-time transcription and contextualization of live lectures.' }) },
     { icon: FileText, label: 'Document', desc: 'Scan syllabi (PDF)', color: 'text-ai-cyan', bg: 'bg-ai-cyan/10', action: () => setActiveModal({ title: 'Document Parse', icon: FileText, color: 'text-ai-cyan', bg: 'bg-ai-cyan/20', desc: 'Extract tasks and deadlines from PDF syllabi and handouts.' }) },
     { icon: Image, label: 'Gallery', desc: 'Import screenshots', color: 'text-accent-success', bg: 'bg-accent-success/10', action: () => setActiveModal({ title: 'Gallery Import', icon: Image, color: 'text-accent-success', bg: 'bg-accent-success/20', desc: 'Process existing screenshots of LMS portals and schedules.' }) },
-    { icon: Type, label: 'Text', desc: 'Manual entry', color: 'text-accent-warning', bg: 'bg-accent-warning/10', action: () => setActiveModal({ title: 'Manual Text', icon: Type, color: 'text-accent-warning', bg: 'bg-accent-warning/20', desc: 'Paste raw text to let ContextAI extract the structure.' }) },
+    { icon: Type, label: 'Text', desc: 'Manual entry', color: 'text-accent-warning', bg: 'bg-accent-warning/10', action: () => setActiveModal({ title: 'Manual Text', icon: Type, color: 'text-accent-warning', bg: 'bg-accent-warning/20', desc: 'Paste raw text to let Nexora extract the structure.' }) },
   ];
 
   return (
@@ -28,7 +28,7 @@ export default function CaptureHub() {
       <motion.div variants={slideUp} className="mb-12">
         <h1 className="text-3xl font-bold text-white mb-3">What do you have?</h1>
         <p className="text-sm font-medium text-white/50 tracking-wide">
-          Give it anything. <span className="text-transparent bg-clip-text bg-gradient-to-r from-ai-blue via-ai-purple to-ai-cyan font-bold">ContextAI understands it.</span>
+          Give it anything. <span className="text-transparent bg-clip-text bg-gradient-to-r from-ai-blue via-ai-purple to-ai-cyan font-bold">Nexora understands it.</span>
         </p>
       </motion.div>
 

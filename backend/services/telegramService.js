@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+
 
 // Lightweight heuristic filter
 function isPotentiallyRelevant(text) {
@@ -65,8 +65,8 @@ function parseTelegramExport(jsonData) {
 async function extractAcademicInfo(messagesChunk) {
   if (messagesChunk.length === 0) return [];
   
-  if (!process.env.GEMINI_API_KEY) {
-    console.log("[Telegram] GEMINI_API_KEY missing. Using demo mock extraction.");
+  if (!process.env.GROQ_API_KEY) {
+    console.log("[Telegram] GROQ_API_KEY missing. Using demo mock extraction.");
     // Demo mock matching the fixture provided
     return [
       {
@@ -117,8 +117,7 @@ async function extractAcademicInfo(messagesChunk) {
     ];
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
   const prompt = `You are a strict academic context parser.
 I will provide a JSON array of recent Telegram messages.
@@ -126,18 +125,20 @@ Identify any academic events, deadlines, assignments, schedule updates, or proje
 A conversation might span multiple messages (e.g. asking "which assignment?" and answering "Assignment 3").
 Ignore casual talk.
 
-Return a JSON array of extracted academic items, matching this exact schema:
-[
-  {
-    "type": "string (e.g. 'ASSIGNMENT', 'EXAM', 'ANNOUNCEMENT', 'PROJECT_TASK', 'PROJECT')",
-    "subject": "string or null (e.g. 'DBMS', 'OS', or the Project Name like 'AI Medical Prediction System')",
-    "activity": "string (e.g. 'Assignment 3', 'Internal Exam', 'API integration')",
-    "deadline": "string or null (e.g. 'Friday', 'Sep 25')",
-    "action": "string or null (e.g. 'moved', 'postponed', 'due', 'uploaded', 'completed', 'pending')",
-    "confidence": "number (0.0 to 1.0)",
-    "sourceMessageIds": ["array of integer message IDs that contribute to this finding"]
-  }
-]
+Return a JSON object with a single key "items" containing an array of extracted academic items, matching this exact schema:
+{
+  "items": [
+    {
+      "type": "string (e.g. 'ASSIGNMENT', 'EXAM', 'ANNOUNCEMENT', 'PROJECT_TASK', 'PROJECT')",
+      "subject": "string or null (e.g. 'DBMS', 'OS', or the Project Name like 'AI Medical Prediction System')",
+      "activity": "string (e.g. 'Assignment 3', 'Internal Exam', 'API integration')",
+      "deadline": "string or null (e.g. 'Friday', 'Sep 25')",
+      "action": "string or null (e.g. 'moved', 'postponed', 'due', 'uploaded', 'completed', 'pending')",
+      "confidence": "number (0.0 to 1.0)",
+      "sourceMessageIds": ["array of integer message IDs that contribute to this finding"]
+    }
+  ]
+}
 
 Input Messages:
 ${JSON.stringify(messagesChunk, null, 2)}
@@ -145,18 +146,30 @@ ${JSON.stringify(messagesChunk, null, 2)}
 Output strictly valid JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: [prompt],
-      config: {
-        responseMimeType: "application/json"
-      }
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
     });
 
-    const parsed = JSON.parse(response.text);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "Groq API error");
+    }
+
+    const data = await response.json();
+    const parsed = JSON.parse(data.choices[0].message.content);
+    return Array.isArray(parsed.items) ? parsed.items : [];
   } catch (err) {
-    console.error("[TelegramService] Gemini extraction failed:", err);
+    console.error("[TelegramService] Groq extraction failed:", err);
     return [];
   }
 }

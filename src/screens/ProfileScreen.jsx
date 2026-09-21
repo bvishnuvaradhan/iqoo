@@ -23,9 +23,9 @@ export default function ProfileScreen() {
         <Settings />
         
         <motion.div variants={staggerContainer} className="glass-card p-6 rounded-2xl flex flex-col items-center text-center mt-2 border-white/5">
-          <h3 className="font-bold text-lg text-white mb-1">ContextAI</h3>
+          <h3 className="font-bold text-lg text-white mb-1">Nexora</h3>
           <p className="text-xs text-white/40 mb-3">Version 0.1.0-beta</p>
-          <p className="text-sm text-white/60">Made with AI ❤️ for students</p>
+          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-1">Connect the dots. Take the next step.</p>
         </motion.div>
         
         <Button 

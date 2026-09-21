@@ -30,6 +30,18 @@ function init(server) {
       ioInstance.to(code).emit("DEVICE_CONNECTED");
     });
 
+    socket.on("LEAVE_PAIRING_CODE", (code) => {
+      socket.leave(code);
+      if (socket.pairingCode === code) {
+        socket.pairingCode = null;
+        roomConnections[code]--;
+        ioInstance.to(code).emit("DEVICE_DISCONNECTED");
+        if (roomConnections[code] <= 0) {
+           delete roomConnections[code];
+        }
+      }
+    });
+
     // 3. Shared Clipboard
     socket.on("CLIPBOARD_SYNC", ({ code, text }) => {
       console.log(`[Sync] Clipboard sent to ${code}`);

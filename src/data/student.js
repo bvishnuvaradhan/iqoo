@@ -3,7 +3,7 @@ export const student = {
   firstName: 'Arjun',
   semester: '5th Semester',
   program: 'B.Tech CSE',
-  university: 'VIT University',
+  university: 'abc univi',
   enrollmentId: '21BCE1847',
   gpa: 8.72,
   avatar: null, // will use initials
