@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { TrendingUp, Award, Camera, BookOpen } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { fadeInUp, staggerContainer } from '../../utils/animations';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function PerformanceOverview() {
   const { student, subjects, captures } = useApp();
@@ -10,6 +11,12 @@ export default function PerformanceOverview() {
   const onTrackCount = subjects?.filter(s => s.progress >= 70).length || 0;
   const behindCount = subjects?.filter(s => s.progress < 70).length || 0;
   const totalCaptures = captures?.length || 24;
+
+  const chartData = subjects?.map(sub => ({
+    subject: sub.code,
+    progress: sub.progress,
+    fullMark: 100
+  })) || [];
 
   return (
     <motion.div 
@@ -60,22 +67,28 @@ export default function PerformanceOverview() {
       </motion.div>
 
       <motion.div variants={fadeInUp} className="glass-card p-5 rounded-2xl flex flex-col gap-4">
-        <h3 className="text-lg font-semibold text-white">Subject Progress</h3>
-        <div className="flex flex-col gap-4">
-          {subjects?.map((sub, idx) => (
-            <div key={idx} className="flex flex-col gap-1">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-medium text-white/80">{sub.code}</span>
-                <span className="text-white/60">{sub.progress}%</span>
-              </div>
-              <div className="h-2 w-full bg-dark-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${sub.progress}%`, backgroundColor: sub.color || '#3b82f6' }}
-                />
-              </div>
-            </div>
-          ))}
+        <h3 className="text-lg font-semibold text-white">Subject Progress Overview</h3>
+        <div className="h-64 w-full mt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+              <PolarGrid stroke="#ffffff20" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff80', fontSize: 11, fontWeight: 'bold' }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '12px' }}
+                itemStyle={{ color: '#06b6d4', fontWeight: 'bold' }}
+                formatter={(value) => [`${value}%`, 'Progress']}
+              />
+              <Radar 
+                name="Progress" 
+                dataKey="progress" 
+                stroke="#06b6d4" 
+                strokeWidth={2}
+                fill="#06b6d4" 
+                fillOpacity={0.4} 
+              />
+            </RadarChart>
+          </ResponsiveContainer>
         </div>
       </motion.div>
     </motion.div>

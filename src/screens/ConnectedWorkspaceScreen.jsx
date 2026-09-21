@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext';
 
 export default function ConnectedWorkspaceScreen() {
   const navigate = useNavigate();
-  const { syncStatus, pairingCode, laptopConnected, requestPairingCode, sendClipboard, sendFile } = useApp();
+  const { syncStatus, pairingCode, laptopConnected, requestPairingCode, disconnectWorkspace, sendClipboard, sendFile } = useApp();
   const [clipboardText, setClipboardText] = useState("");
   const [fileInput, setFileInput] = useState(null);
 
@@ -58,7 +58,7 @@ export default function ConnectedWorkspaceScreen() {
               <Smartphone className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <p className="text-base font-bold text-white">ContextAI Mobile</p>
+              <p className="text-base font-bold text-white">Nexora Mobile</p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'CONNECTED' ? 'bg-accent-success animate-pulse' : 'bg-accent-warning'}`}></div>
                 <p className={`text-xs font-medium uppercase tracking-wider ${syncStatus === 'CONNECTED' ? 'text-accent-success' : 'text-accent-warning'}`}>
@@ -121,6 +121,12 @@ export default function ConnectedWorkspaceScreen() {
                     </div>
                   </div>
                 </div>
+                <button 
+                  onClick={disconnectWorkspace}
+                  className="mt-6 text-xs font-bold text-accent-danger/80 uppercase tracking-widest px-4 py-2 rounded-full border border-accent-danger/30 hover:bg-accent-danger/10 transition-colors"
+                >
+                  Disconnect
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -179,7 +185,7 @@ export default function ConnectedWorkspaceScreen() {
       </motion.div>
       
       <motion.p variants={slideUp} className="text-[10px] text-white/20 text-center mt-8 uppercase font-bold tracking-widest">
-        ContextAI Device Synchronization Prototype
+        Nexora Device Synchronization Prototype
       </motion.p>
     </motion.div>
   );

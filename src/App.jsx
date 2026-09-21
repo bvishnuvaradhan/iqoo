@@ -9,6 +9,7 @@ import AcademicsScreen from './screens/AcademicsScreen';
 import AIPlanScreen from './screens/AIPlanScreen';
 import ProjectsScreen from './screens/ProjectsScreen';
 import ConnectedWorkspaceScreen from './screens/ConnectedWorkspaceScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import SubjectDetail from './components/academics/SubjectDetail';
 
 import LaptopDashboard from './screens/LaptopDashboard';
@@ -28,6 +29,7 @@ function InnerApp() {
     else if (path === '/academics') setActiveTab('academics');
     else if (path === '/ai-plan') setActiveTab('ai-plan');
     else if (path === '/projects') setActiveTab('projects');
+    else if (path === '/profile') setActiveTab('profile');
   }, [location.pathname, setActiveTab]);
 
   return (
@@ -43,6 +45,7 @@ function InnerApp() {
         <Route path="/ai-plan" element={<AppShell><AIPlanScreen /></AppShell>} />
         <Route path="/projects" element={<AppShell><ProjectsScreen /></AppShell>} />
         <Route path="/workspace" element={<AppShell><ConnectedWorkspaceScreen /></AppShell>} />
+        <Route path="/profile" element={<AppShell><ProfileScreen /></AppShell>} />
         
         <Route path="/subject/:id" element={<AppShell><SubjectDetail /></AppShell>} />
       </Routes>

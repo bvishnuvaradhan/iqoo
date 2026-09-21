@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+
 
 function validatePerception(data) {
   // Validate and clamp fields
@@ -15,8 +15,8 @@ function validatePerception(data) {
 }
 
 async function analyzeImage(imageBuffer, mimeType) {
-  if (!process.env.GEMINI_API_KEY) {
-    console.log("[Perception] GEMINI_API_KEY is not configured. Returning demo_fallback.");
+  if (!process.env.GROQ_API_KEY) {
+    console.log("[Perception] GROQ_API_KEY is not configured. Returning demo_fallback.");
     return {
       mode: "demo_fallback",
       perception: {
@@ -33,10 +33,7 @@ async function analyzeImage(imageBuffer, mimeType) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-    const prompt = `You are the perception engine for ContextAI. 
+    const prompt = `You are the perception engine for Nexora. 
     Analyze the uploaded image and extract any academic information, handwriting, or text.
     Return a structured JSON object exactly matching this schema:
     {
@@ -51,22 +48,41 @@ async function analyzeImage(imageBuffer, mimeType) {
     }
     IMPORTANT: Report EXACTLY what you see. Do NOT invent context or automatically complete incomplete words. Output ONLY valid JSON without markdown formatting blocks.`;
 
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: [
-        prompt,
-        { inlineData: { data: imageBuffer.toString("base64"), mimeType } }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.2-11b-vision-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBuffer.toString('base64')}` } }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "Groq API error");
+    }
+    
+    const data = await response.json();
+    const content = data.choices[0].message.content;
 
     let rawData;
     try {
-      rawData = JSON.parse(response.text);
+      rawData = JSON.parse(content);
     } catch (parseErr) {
-      console.error("[Perception] Gemini returned malformed JSON:", response.text);
+      console.error("[Perception] Groq returned malformed JSON:", content);
       throw new Error("Received malformed response from AI perception engine.");
     }
 

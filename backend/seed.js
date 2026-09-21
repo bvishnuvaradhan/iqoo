@@ -12,7 +12,7 @@ async function seed() {
   // 1. Seed Student
   await db.run(`
     INSERT INTO students (id, name, firstName, semester, program, university, gpa) 
-    VALUES ('stu_1', 'Arjun Mehta', 'Arjun', '5th Semester', 'B.Tech CSE', 'VIT University', 8.72)
+    VALUES ('stu_1', 'Arjun Mehta', 'Arjun', '5th Semester', 'B.Tech CSE', 'abc univi', 8.72)
   `);
 
   // 2. Seed Subjects

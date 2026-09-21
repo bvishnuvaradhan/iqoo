@@ -39,7 +39,7 @@ export default function AIProcessing() {
         const formData = new FormData();
         formData.append('image', imageFile);
 
-        const response = await fetch('http://localhost:8000/api/capture/analyze', {
+        const response = await fetch(`http://${window.location.hostname}:8000/api/capture/analyze`, {
           method: 'POST',
           body: formData
         });

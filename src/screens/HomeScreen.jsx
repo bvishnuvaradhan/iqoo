@@ -6,7 +6,7 @@ import { staggerContainer, slideUp } from '../utils/animations';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function HomeScreen() {
-  const { student } = useApp();
+  const { student, laptopConnected } = useApp();
   const navigate = useNavigate();
 
   return (
@@ -138,16 +138,20 @@ export default function HomeScreen() {
           </div>
           
           <div className="flex flex-col items-center px-4">
-            <div className="h-0.5 w-12 bg-gradient-to-r from-ai-blue via-ai-purple to-ai-cyan relative">
-              <div className="absolute inset-0 bg-white/50 blur-[2px] animate-pulse"></div>
+            <div className={`h-0.5 w-12 relative ${laptopConnected ? 'bg-gradient-to-r from-ai-blue via-ai-purple to-ai-cyan' : 'bg-white/10'}`}>
+              {laptopConnected && <div className="absolute inset-0 bg-white/50 blur-[2px] animate-pulse"></div>}
             </div>
-            <span className="text-[9px] font-bold text-white/50 uppercase mt-1">Office Kit</span>
+            <span className="text-[9px] font-bold text-white/50 uppercase mt-1">
+              {laptopConnected ? 'Active Sync' : 'Offline'}
+            </span>
           </div>
 
           <div className="flex flex-col items-center gap-1">
-            <Laptop className="w-5 h-5 text-ai-cyan" />
-            <span className="text-[10px] font-bold text-white">Laptop</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-accent-success"></div>
+            <Laptop className={`w-5 h-5 ${laptopConnected ? 'text-ai-cyan' : 'text-white/20'}`} />
+            <span className={`text-[10px] font-bold ${laptopConnected ? 'text-white' : 'text-white/40'}`}>
+              {laptopConnected ? 'Laptop Connected' : 'Not Connected'}
+            </span>
+            <div className={`w-1.5 h-1.5 rounded-full ${laptopConnected ? 'bg-accent-success animate-pulse' : 'bg-white/10'}`}></div>
           </div>
         </div>
       </motion.div>

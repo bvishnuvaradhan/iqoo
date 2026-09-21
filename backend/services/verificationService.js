@@ -15,7 +15,7 @@ function verifyContext(perception, contextMatches) {
       verified: false,
       verificationState: 'NEW',
       confidence: perception.confidence,
-      reason: "ContextAI could not confidently match this information to your academic context. Treating as new.",
+      reason: "Nexora could not confidently match this information to your academic context. Treating as new.",
       match: null,
       evidence: ["No overlapping keywords in subjects, topics, or materials."]
     };
@@ -253,7 +253,7 @@ function verifyContext(perception, contextMatches) {
     confidence: Number(verificationConfidence.toFixed(2)),
     reason: isVerified 
       ? `Matched against the student's ${bestMatch.subject} academic context.` 
-      : `ContextAI could not confidently match this information to your academic context.`,
+      : `Nexora could not confidently match this information to your academic context.`,
     match: bestMatch,
     evidence: bestMatch.evidence
   };

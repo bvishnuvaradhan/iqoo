@@ -107,7 +107,7 @@ export default function ContextVerification() {
           <div className="glass-card ai-border p-5 bg-gradient-to-br from-ai-blue/10 to-transparent">
             <h2 className="text-2xl font-bold text-white mb-4">{data.subtopic || 'Unknown'}</h2>
             <p className="text-sm text-white/70 leading-relaxed border-t border-white/10 pt-4">
-              {data.reason || "ContextAI matched the incomplete capture with your academic context."}
+              {data.reason || "Nexora matched the incomplete capture with your academic context."}
             </p>
           </div>
         </motion.div>
@@ -122,7 +122,7 @@ export default function ContextVerification() {
             <h2 className="text-lg font-bold text-white">Uncertain Match</h2>
           </div>
           <p className="text-sm text-white/70 leading-relaxed">
-            {data.reason || "ContextAI could not confidently match this information to your academic context."}
+            {data.reason || "Nexora could not confidently match this information to your academic context."}
           </p>
         </div>
       </motion.div>

@@ -49,7 +49,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: "ok",
     database: "connected",
-    gemini: process.env.GEMINI_API_KEY ? "configured" : "missing_key_demo_fallback_active"
+    groq: process.env.GROQ_API_KEY ? "configured" : "missing_key_demo_fallback_active"
   });
 });
 
@@ -389,6 +389,64 @@ app.post('/api/telegram/accept', async (req, res) => {
   }
 });
 
+// Mark a task/item as complete
+app.post('/api/action/complete', async (req, res) => {
+  const { type, id, studentId = 'stu_1', pairingCode, actionType = 'complete' } = req.body;
+  const db = await getDb();
+  
+  try {
+    if (type === 'project_task') {
+      const newStatus = actionType === 'uncomplete' ? 'Pending' : 'Completed';
+      await db.run(`UPDATE project_tasks SET status = ? WHERE id = ?`, [newStatus, id]);
+      
+      if (pairingCode) {
+        const row = await db.get(`SELECT project_id, title FROM project_tasks WHERE id = ?`, [id]);
+        if (row) {
+          const proj = await db.get(`SELECT * FROM projects WHERE id = ?`, [row.project_id]);
+          if (proj) {
+            const tasks = await db.all(`SELECT * FROM project_tasks WHERE project_id = ?`, [row.project_id]);
+            const completed = tasks.filter(t => t.status === 'Completed').length;
+            const total = tasks.length;
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            // Also update project progress in DB
+            await db.run(`UPDATE projects SET progress = ? WHERE id = ?`, [progress, row.project_id]);
+
+            broadcastUpdate(pairingCode, 'PROJECT_UPDATED', {
+              name: proj.name,
+              progress: progress,
+              completedCount: completed,
+              totalCount: total,
+              recentTask: row.title + (actionType === 'uncomplete' ? " (Reopened)" : " (Completed)")
+            });
+          }
+        }
+      }
+    } else if (type === 'topic') {
+      await db.run(`UPDATE topics SET status = 'completed' WHERE id = ?`, [id]);
+    } else if (type === 'upcoming_item') {
+      // For upcoming items, maybe we just delete them or mark them if we had a status field.
+      // We don't have a status field for upcoming_items, so let's delete it so it disappears from the list.
+      await db.run(`DELETE FROM upcoming_items WHERE id = ?`, [id]);
+    }
+
+    // Always recalculate recommendations on task completion
+    const recs = await generateRecommendations(studentId);
+    if (pairingCode) {
+      broadcastUpdate(pairingCode, 'RECOMMENDATIONS_UPDATED', recs);
+    }
+    
+    // Broadcast a general context update to trigger a refetch on the laptop if needed
+    if (pairingCode) {
+      broadcastUpdate(pairingCode, 'CONTEXT_REFRESH_NEEDED', { type, id });
+    }
+    
+    res.json({ success: true, recommendations: recs });
+  } catch (err) {
+    console.error("Action complete error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 // Demo Reset Mechanism
 app.post('/api/demo/reset', async (req, res) => {
   try {

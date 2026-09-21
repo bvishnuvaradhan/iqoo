@@ -20,7 +20,7 @@ export default function TelegramImport() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch('http://localhost:8000/api/telegram/analyze', {
+      const res = await fetch(`http://${window.location.hostname}:8000/api/telegram/analyze`, {
         method: 'POST',
         body: formData
       });
@@ -58,7 +58,7 @@ export default function TelegramImport() {
           <MessageSquare className="w-8 h-8 text-[#2AABEE]" />
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Telegram Intelligence</h1>
-        <p className="text-sm text-white/60">Upload your Telegram Desktop JSON export. ContextAI will find academic context in the chaos.</p>
+        <p className="text-sm text-white/60">Upload your Telegram Desktop JSON export. Nexora will find academic context in the chaos.</p>
       </motion.div>
 
       {error && (

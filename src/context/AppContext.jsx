@@ -30,7 +30,7 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     // Initialize Socket
-    const newSocket = io('http://localhost:8000', {
+    const newSocket = io(`http://${window.location.hostname}:8000`, {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
@@ -83,6 +83,14 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const disconnectWorkspace = () => {
+    if (socket && pairingCode) {
+      socket.emit('LEAVE_PAIRING_CODE', pairingCode);
+      setPairingCode(null);
+      setLaptopConnected(false);
+    }
+  };
+
   const sendClipboard = (text) => {
     if (socket && pairingCode) {
       socket.emit('CLIPBOARD_SYNC', { code: pairingCode, text });
@@ -98,7 +106,7 @@ export const AppProvider = ({ children }) => {
   // Phase 1/4: Real Academic Database Hydration & Recommendation Engine
   const fetchRecommendations = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/recommendations/stu_1');
+      const response = await fetch(`http://${window.location.hostname}:8000/api/recommendations/stu_1`);
       if (response.ok) {
         const data = await response.json();
         const recs = data.recommendations.map(r => ({
@@ -122,7 +130,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     const fetchRealAcademicContext = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/student/stu_1');
+        const response = await fetch(`http://${window.location.hostname}:8000/api/student/stu_1`);
         if (!response.ok) throw new Error('API Error');
         const data = await response.json();
         
@@ -210,7 +218,7 @@ export const AppProvider = ({ children }) => {
   const confirmVerifiedContext = async (captureData) => {
     try {
       // Pass pairingCode so backend can broadcast updates
-      const res = await fetch('http://localhost:8000/api/context/accept', {
+      const res = await fetch(`http://${window.location.hostname}:8000/api/context/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: 'stu_1', captureData, pairingCode })
@@ -274,6 +282,7 @@ export const AppProvider = ({ children }) => {
       telegramFlow, startTelegramFlow, advanceTelegramStep, resetTelegramFlow,
       // Socket & Sync state
       syncStatus, pairingCode, laptopConnected, requestPairingCode, joinPairingCode,
+      disconnectWorkspace,
       sharedClipboard, sendClipboard, receivedFile, sendFile, socket
     }}>
       {children}
