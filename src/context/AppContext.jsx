@@ -29,9 +29,9 @@ export const AppProvider = ({ children }) => {
   const [receivedFile, setReceivedFile] = useState(null);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`);
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:8000` : ''));
     
-    if (socketUrl === 'disabled' || socketUrl === '/api') {
+    if (!socketUrl || socketUrl === 'disabled' || socketUrl === '/api') {
       console.warn("Socket.IO is disabled in this environment (Vercel Serverless). Realtime syncing requires manual refresh.");
       setSyncStatus('DISCONNECTED');
       return;
@@ -114,7 +114,7 @@ export const AppProvider = ({ children }) => {
   // Phase 1/4: Real Academic Database Hydration & Recommendation Engine
   const fetchRecommendations = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/recommendations/stu_1`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:8000` : '')}/api/recommendations/stu_1`);
       if (response.ok) {
         const data = await response.json();
         const recs = data.recommendations.map(r => ({
@@ -137,7 +137,7 @@ export const AppProvider = ({ children }) => {
 
   const fetchRealAcademicContext = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/student/stu_1`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:8000` : '')}/api/student/stu_1`);
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       
@@ -226,7 +226,7 @@ export const AppProvider = ({ children }) => {
   const confirmVerifiedContext = async (captureData) => {
     try {
       // Pass pairingCode so backend can broadcast updates
-      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/context/accept`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:8000` : '')}/api/context/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: 'stu_1', captureData, pairingCode })
