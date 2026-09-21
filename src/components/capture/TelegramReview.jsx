@@ -66,7 +66,7 @@ export default function TelegramReview() {
         sourceMessageIds: item.sourceMessageIds
       }));
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/telegram/accept`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:8000` : '')}/api/telegram/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: payload, pairingCode }) 
