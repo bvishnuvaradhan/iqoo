@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Brain, Clock, Calendar, ArrowRight, Laptop, Smartphone, FileText, CheckCircle2, AlertTriangle, ArrowDownUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { staggerContainer, slideUp } from '../utils/animations';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function HomeScreen() {
   const { student } = useApp();
@@ -40,13 +40,13 @@ export default function HomeScreen() {
         <p className="text-lg font-medium text-white/90 leading-snug mb-4">
           <span className="text-ai-cyan">Scheduling</span> is becoming a priority because your OS exam is approaching and your recent quiz performance is low.
         </p>
-        <button 
-          onClick={() => navigate('/ai-plan')}
-          className="bg-ai-blue/20 hover:bg-ai-blue/30 text-ai-blue text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors w-fit"
-        >
-          View Recommended Plan <ArrowRight className="w-3 h-3" />
-        </button>
-      </motion.div>
+          <Link 
+            to="/ai-plan"
+            className="bg-ai-blue/20 hover:bg-ai-blue/30 text-ai-blue text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors w-fit cursor-pointer relative z-10"
+          >
+            View Recommended Plan <ArrowRight className="w-3 h-3" />
+          </Link>
+        </motion.div>
 
       {/* Today's Focus */}
       <motion.div variants={slideUp}>

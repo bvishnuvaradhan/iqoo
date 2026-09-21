@@ -7,6 +7,7 @@ import CameraView from '../components/capture/CameraView';
 import AIProcessing from '../components/capture/AIProcessing';
 import PerceptionResult from '../components/capture/PerceptionResult';
 import ContextVerification from '../components/capture/ContextVerification';
+import ContextUpdated from '../components/capture/ContextUpdated';
 import TelegramImport from '../components/capture/TelegramImport';
 import TelegramReview from '../components/capture/TelegramReview';
 

@@ -51,11 +51,5 @@ function InnerApp() {
 }
 
 export default function App() {
-  return (
-    <Router>
-      <AppProvider>
-        <InnerApp />
-      </AppProvider>
-    </Router>
-  );
+  return <InnerApp />;
 }
