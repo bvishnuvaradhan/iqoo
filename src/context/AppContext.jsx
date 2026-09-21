@@ -29,8 +29,16 @@ export const AppProvider = ({ children }) => {
   const [receivedFile, setReceivedFile] = useState(null);
 
   useEffect(() => {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`);
+    
+    if (socketUrl === 'disabled' || socketUrl === '/api') {
+      console.warn("Socket.IO is disabled in this environment (Vercel Serverless). Realtime syncing requires manual refresh.");
+      setSyncStatus('DISCONNECTED');
+      return;
+    }
+
     // Initialize Socket
-    const newSocket = io(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}`, {
+    const newSocket = io(socketUrl, {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
@@ -106,7 +114,7 @@ export const AppProvider = ({ children }) => {
   // Phase 1/4: Real Academic Database Hydration & Recommendation Engine
   const fetchRecommendations = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/recommendations/stu_1`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/recommendations/stu_1`);
       if (response.ok) {
         const data = await response.json();
         const recs = data.recommendations.map(r => ({
@@ -127,57 +135,57 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => {
-    const fetchRealAcademicContext = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/student/stu_1`);
-        if (!response.ok) throw new Error('API Error');
-        const data = await response.json();
-        
-        setStudent(prev => ({
-          ...prev,
-          name: data.student.name,
-          firstName: data.student.firstName,
-          program: data.student.program,
-          semester: data.student.semester,
-          gpa: data.student.gpa
-        }));
+  const fetchRealAcademicContext = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/student/stu_1`);
+      if (!response.ok) throw new Error('API Error');
+      const data = await response.json();
+      
+      setStudent(prev => ({
+        ...prev,
+        name: data.student.name,
+        firstName: data.student.firstName,
+        program: data.student.program,
+        semester: data.student.semester,
+        gpa: data.student.gpa
+      }));
 
-        const hydratedSubjects = data.subjects.map(dbSub => ({
-          id: dbSub.id,
-          name: dbSub.name,
-          code: dbSub.code,
-          color: dbSub.color,
-          professor: dbSub.professor,
-          progress: dbSub.progress,
-          icon: dbSub.name.includes('Operating') ? 'cpu' : 
-                dbSub.name.includes('Database') ? 'database' : 
-                dbSub.name.includes('SOA') ? 'network' : 'book-open',
-          topics: (dbSub.topics || []).map(t => ({
-            name: t.name,
-            status: t.status,
-            module: t.module_name
-          })),
-          upcomingItems: (dbSub.upcomingItems || []).map(u => ({
-            type: u.type,
-            title: u.title,
-            date: u.date,
-            priority: u.priority
-          }))
-        }));
+      const hydratedSubjects = data.subjects.map(dbSub => ({
+        id: dbSub.id,
+        name: dbSub.name,
+        code: dbSub.code,
+        color: dbSub.color,
+        professor: dbSub.professor,
+        progress: dbSub.progress,
+        icon: dbSub.name.includes('Operating') ? 'cpu' : 
+              dbSub.name.includes('Database') ? 'database' : 
+              dbSub.name.includes('SOA') ? 'network' : 'book-open',
+        topics: (dbSub.topics || []).map(t => ({
+          name: t.name,
+          status: t.status,
+          module: t.module_name
+        })),
+        upcomingItems: (dbSub.upcomingItems || []).map(u => ({
+          type: u.type,
+          title: u.title,
+          date: u.date,
+          priority: u.priority
+        }))
+      }));
 
-        setSubjects(hydratedSubjects);
-        if (data.projects) {
-          setProjects(data.projects);
-        }
-
-        // Fetch real recommendations
-        await fetchRecommendations();
-      } catch (err) {
-        console.warn("Failed to fetch real context, using mock data.", err);
+      setSubjects(hydratedSubjects);
+      if (data.projects) {
+        setProjects(data.projects);
       }
-    };
 
+      // Fetch real recommendations
+      await fetchRecommendations();
+    } catch (err) {
+      console.warn("Failed to fetch real context, using mock data.", err);
+    }
+  };
+
+  useEffect(() => {
     fetchRealAcademicContext();
   }, []);
 
@@ -218,7 +226,7 @@ export const AppProvider = ({ children }) => {
   const confirmVerifiedContext = async (captureData) => {
     try {
       // Pass pairingCode so backend can broadcast updates
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/context/accept`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/context/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: 'stu_1', captureData, pairingCode })
@@ -282,7 +290,7 @@ export const AppProvider = ({ children }) => {
       telegramFlow, startTelegramFlow, advanceTelegramStep, resetTelegramFlow,
       // Socket & Sync state
       syncStatus, pairingCode, laptopConnected, requestPairingCode, joinPairingCode,
-      disconnectWorkspace,
+      disconnectWorkspace, fetchRealAcademicContext,
       sharedClipboard, sendClipboard, receivedFile, sendFile, socket
     }}>
       {children}

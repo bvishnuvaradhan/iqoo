@@ -1,8 +1,17 @@
-import React from 'react';
-import { Search, Bell, Activity, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, Bell, Activity, Loader2, RefreshCw } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 export default function TopNav({ syncStatus }) {
+  const { fetchRealAcademicContext } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchRealAcademicContext();
+    setIsRefreshing(false);
+  };
 
   return (
     <div className="h-20 w-full border-b border-white/5 bg-dark-900/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-10">
@@ -52,6 +61,18 @@ export default function TopNav({ syncStatus }) {
           <Bell className="w-4 h-4 text-white/70" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-ai-purple border-2 border-[#0a0a0a]"></span>
         </button>
+
+        {syncStatus === 'DISCONNECTED' && (
+          <button 
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-ai-cyan/10 border border-ai-cyan/20 hover:bg-ai-cyan/20 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-ai-cyan ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-[10px] font-bold text-ai-cyan tracking-widest uppercase">
+              {isRefreshing ? 'SYNCING...' : 'SYNC'}
+            </span>
+          </button>
+        )}
       </div>
 
     </div>

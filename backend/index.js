@@ -25,20 +25,45 @@ const ProjectTask = require('./models/ProjectTask');
 
 const app = express();
 const server = http.createServer(app);
-initSync(server);
+
+// In a Vercel serverless environment, we cannot use Socket.IO safely without a standalone server.
+// We disable the Socket.IO setup to prevent breaking the deployment.
+if (!process.env.VERCEL) {
+  initSync(server);
+}
 
 const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"] : "*";
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
+// Ensure MongoDB is connected for Serverless Invocations
+if (process.env.VERCEL) {
+  app.use(async (req, res, next) => {
+    try {
+      await initDb();
+      next();
+    } catch (err) {
+      res.status(500).json({ error: 'Database connection failed' });
+    }
+  });
+}
+
 const uploadImage = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 4.5 * 1024 * 1024 }, // Vercel strict limit is 4.5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed!'), false);
+  }
 });
 
 const uploadJson = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/json') cb(null, true);
+    else cb(new Error('Only JSON files are allowed!'), false);
+  }
 });
 
 app.get('/api/health', async (req, res) => {
@@ -393,10 +418,16 @@ app.post('/api/demo/reset', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-initDb().then(() => {
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Nexora Backend running on port ${PORT}`);
+
+if (!process.env.VERCEL) {
+  initDb().then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Nexora Backend running on port ${PORT}`);
+    });
+  }).catch(err => {
+    console.error("Failed to start server", err);
   });
-}).catch(err => {
-  console.error("Failed to start server", err);
-});
+}
+
+// Export for Vercel
+module.exports = app;
