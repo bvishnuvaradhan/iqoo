@@ -20,7 +20,7 @@ export default function TelegramImport() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`http://${window.location.hostname}:8000/api/telegram/analyze`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/telegram/analyze`, {
         method: 'POST',
         body: formData
       });

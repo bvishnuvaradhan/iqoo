@@ -31,7 +31,7 @@ export default function LaptopDashboard() {
   // Fetch initial data
   const fetchStudentData = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/student/stu_1`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/student/stu_1`);
       if (res.ok) {
         const data = await res.json();
         setStudentData(data);
@@ -43,7 +43,7 @@ export default function LaptopDashboard() {
 
   const fetchRecommendations = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/recommendations/stu_1`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/recommendations/stu_1`);
       if (res.ok) {
         const data = await res.json();
         setLiveRecs(data.recommendations || []);
@@ -60,7 +60,14 @@ export default function LaptopDashboard() {
 
   // Socket Connection
   useEffect(() => {
-    const newSocket = io(`http://${window.location.hostname}:8000`, {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`);
+    
+    if (socketUrl === 'disabled' || socketUrl === '/api') {
+      setSyncStatus('DISCONNECTED');
+      return;
+    }
+
+    const newSocket = io(socketUrl, {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
@@ -126,7 +133,7 @@ export default function LaptopDashboard() {
   // Action Handler (Mark Complete / Uncomplete)
   const handleCompleteTask = async (type, id, actionType = 'complete') => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/action/complete`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`}/api/action/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, id, studentId: 'stu_1', pairingCode: code.trim().toUpperCase(), actionType })

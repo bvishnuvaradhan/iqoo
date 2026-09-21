@@ -3,7 +3,8 @@ const roomConnections = {};
 
 function init(server) {
   const { Server } = require("socket.io");
-  ioInstance = new Server(server, { cors: { origin: "*" } });
+  const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"] : "*";
+  ioInstance = new Server(server, { cors: { origin: allowedOrigins } });
 
   ioInstance.on("connection", (socket) => {
     

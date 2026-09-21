@@ -48,7 +48,7 @@ Extracted information is cross-referenced against the student's existing SQLite 
 
 ### Backend Architecture
 - **Runtime:** Node.js with Express
-- **Database:** SQLite (Relational DB managing `students`, `subjects`, `topics`, `projects`, and `project_tasks`)
+- **Database:** MongoDB (via Mongoose schemas managing `Student`, `Subject`, `Topic`, `Project`, and `ProjectTask` models)
 - **AI Integration:** Groq API (using native `fetch`) for LLM and Vision tasks.
 - **File Parsing:** Multer for in-memory file uploads (images & JSON).
 - **Real-Time Layer:** Socket.IO Server managing isolated pairing rooms (`CONTEXT-XXXX`) for secure device-to-device streaming.
@@ -80,9 +80,18 @@ The backend relies on environment variables defined in a `.env` file to handle A
 
 **Required `.env` Variables (Backend):**
 ```env
+PORT=8000
+MONGODB_URI=mongodb://127.0.0.1:27017/nexora
+MONGODB_DB_NAME=nexora
+FRONTEND_URL=http://localhost:5173
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
-PORT=8000
+GROQ_VISION_MODEL=llama-3.2-11b-vision-preview
+```
+
+**Required `.env` Variables (Frontend):**
+```env
+VITE_API_URL=http://localhost:8000
 ```
 
 **Bootstrapping the Environment:**
