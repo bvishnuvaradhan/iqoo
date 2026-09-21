@@ -17,13 +17,12 @@ Nexora is a full-stack application designed to capture images, analyze them usin
 - **Styling:** Tailwind CSS
 - **Animations:** Framer Motion
 - **Icons:** Lucide React
-- **Routing:** React Router DOM
 - **Real-time:** Socket.io-client
 
 ### Backend
 - **Framework:** Node.js with Express
 - **AI Integration:** Groq API (via fetch)
-- **Database:** SQLite
+- **Database:** MongoDB (via Mongoose)
 - **File Uploads:** Multer (memory storage for images/JSON)
 - **Real-time:** Socket.io
 
@@ -31,6 +30,7 @@ Nexora is a full-stack application designed to capture images, analyze them usin
 
 - Node.js (v18 or higher recommended)
 - A Groq API Key
+- MongoDB instance (Local or Atlas)
 
 ## Installation and Setup
 
@@ -48,33 +48,65 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in the `backend` directory:
+Create a `.env` file in the `backend` directory (copy from `.env.example`):
+```bash
+cp .env.example .env
+```
+Inside `.env`, configure your settings:
 ```env
-GROQ_API_KEY=your_groq_api_key_here
 PORT=8000
+MONGODB_URI=mongodb://127.0.0.1:27017/nexora
+MONGODB_DB_NAME=nexora
+FRONTEND_URL=http://localhost:5173
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_VISION_MODEL=llama-3.2-11b-vision-preview
 ```
 
-Seed the database and start the server:
+Seed the MongoDB database:
 ```bash
 node seed.js
-node index.js
 ```
-The backend server will run on `http://localhost:8000`.
+
+Start the backend server:
+```bash
+npm start
+# or 'node index.js'
+```
 
 ### 3. Frontend Setup
 
-Open a new terminal window/tab:
+In a new terminal window, navigate to the root directory:
+
 ```bash
-# From the root of the project (iqoo directory)
 npm install
+```
+
+Create a `.env` file in the root directory:
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+Start the development server:
+```bash
 npm run dev
 ```
-The frontend development server will usually start on `http://localhost:5173`. 
 
-## Project Structure
+## Deployment Considerations
 
-- `/backend`: Contains the Express server, SQLite database logic, Groq AI integration services (`perceptionService`, `contextService`), and real-time syncing (`deviceSyncService`).
-- `/src`: Contains the React frontend code.
-  - `/components`: Reusable UI components.
-  - `/screens`: Main page views (HomeScreen, CaptureScreen, LaptopDashboard, etc.).
-  - `/context`: React context providers for global state.
+### MongoDB Atlas Setup
+If you are deploying to production, replace `MONGODB_URI` with your MongoDB Atlas connection string:
+`mongodb+srv://<username>:<password>@cluster.mongodb.net/nexora?retryWrites=true&w=majority`
+
+### Socket.IO and CORS
+The backend expects `FRONTEND_URL` in the environment to strictly enforce CORS for both Express and Socket.IO.
+When deploying the frontend, ensure `VITE_API_URL` is set to the backend's production URL so it does not default to localhost.
+
+### Health Check
+You can verify backend and database connection status via the `/api/health` endpoint.
+
+## Troubleshooting
+
+- **MongoDB connection refused:** Ensure your local MongoDB daemon (`mongod`) is running, or verify your Atlas IP whitelist.
+- **Socket.IO not connecting:** Verify `VITE_API_URL` exactly matches the backend domain, including `http/https`.
+- **AI Analysis fails:** Check that your `GROQ_API_KEY` is valid and the selected models (`GROQ_MODEL`, `GROQ_VISION_MODEL`) are currently available on Groq's platform.

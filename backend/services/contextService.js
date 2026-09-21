@@ -1,8 +1,13 @@
-const { getDb } = require('../database');
+const Student = require('../models/Student');
+const Subject = require('../models/Subject');
+const Topic = require('../models/Topic');
+const Material = require('../models/Material');
+const UpcomingItem = require('../models/UpcomingItem');
+const Project = require('../models/Project');
+const ProjectTask = require('../models/ProjectTask');
 
 function tokenize(text) {
   if (!text) return [];
-  // Lowercase, remove non-alphanumeric, split by spaces
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
 }
 
@@ -12,33 +17,28 @@ function calculateOverlap(tokens1, tokens2) {
 }
 
 async function searchContext(query, studentId = 'stu_1') {
-  const db = await getDb();
-  
   if (!query) {
     return [];
   }
 
-  // 1. Fetch all potential academic context for the student
-  const allTopics = await db.all(`
-    SELECT t.*, s.name as subject_name 
-    FROM topics t JOIN subjects s ON t.subject_id = s.id
-    WHERE s.student_id = ?
-  `, [studentId]);
+  // Find subjects for this student
+  const subjects = await Subject.find({ student_id: studentId }).lean();
+  const subjectIds = subjects.map(s => s._id);
+  const subjectMap = {};
+  subjects.forEach(s => subjectMap[s._id] = s.name);
 
-  const allMaterials = await db.all(`
-    SELECT m.*, t.name as topic_name, s.name as subject_name
-    FROM materials m 
-    JOIN topics t ON m.topic_id = t.id
-    JOIN subjects s ON m.subject_id = s.id
-    WHERE s.student_id = ?
-  `, [studentId]);
+  const allTopics = await Topic.find({ subject_id: { $in: subjectIds } }).lean();
+  const allMaterials = await Material.find({ subject_id: { $in: subjectIds } }).lean();
+  
+  // Create mapping for topic names for material join
+  const topicMap = {};
+  allTopics.forEach(t => topicMap[t._id] = t.name);
 
   const queryTokens = tokenize(query);
   const queryNorm = query.toLowerCase().trim();
 
   const contextResults = [];
 
-  // 2. Layered Matching for Topics
   for (const top of allTopics) {
     const topNorm = top.name.toLowerCase().trim();
     const topTokens = tokenize(top.name);
@@ -61,14 +61,13 @@ async function searchContext(query, studentId = 'stu_1') {
       contextResults.push({
         type: 'topic_match',
         match_level: matchType,
-        subject: top.subject_name,
+        subject: subjectMap[top.subject_id],
         module: top.module_name,
         topic: top.name
       });
     }
   }
 
-  // 3. Layered Matching for Materials
   for (const mat of allMaterials) {
     const titleNorm = mat.title.toLowerCase();
     const snippetNorm = mat.content_snippet.toLowerCase();
@@ -90,21 +89,15 @@ async function searchContext(query, studentId = 'stu_1') {
       contextResults.push({
         type: 'material_match',
         match_level: matchType,
-        subject: mat.subject_name,
-        topic: mat.topic_name,
+        subject: subjectMap[mat.subject_id],
+        topic: topicMap[mat.topic_id] || 'General',
         material_title: mat.title,
         snippet: mat.content_snippet
       });
     }
   }
 
-  // 4. Layered Matching for Upcoming Items
-  const allUpcoming = await db.all(`
-    SELECT u.*, s.name as subject_name
-    FROM upcoming_items u
-    JOIN subjects s ON u.subject_id = s.id
-    WHERE s.student_id = ?
-  `, [studentId]);
+  const allUpcoming = await UpcomingItem.find({ subject_id: { $in: subjectIds } }).lean();
 
   for (const item of allUpcoming) {
     const titleNorm = item.title.toLowerCase();
@@ -129,8 +122,8 @@ async function searchContext(query, studentId = 'stu_1') {
         type: 'upcoming_match',
         match_level: matchType,
         overlap: overlapCount,
-        subject: item.subject_name,
-        item_id: item.id,
+        subject: subjectMap[item.subject_id],
+        item_id: item._id,
         item_title: item.title,
         item_type: item.type,
         item_date: item.date
@@ -138,8 +131,7 @@ async function searchContext(query, studentId = 'stu_1') {
     }
   }
 
-  // 5. Layered Matching for Projects and Tasks
-  const allProjects = await db.all('SELECT * FROM projects WHERE student_id = ?', [studentId]);
+  const allProjects = await Project.find({ student_id: studentId }).lean();
   
   for (const proj of allProjects) {
     const projNorm = proj.name.toLowerCase();
@@ -164,14 +156,13 @@ async function searchContext(query, studentId = 'stu_1') {
         type: 'project_match',
         match_level: matchType,
         overlap: overlapCount,
-        project_id: proj.id,
+        project_id: proj._id,
         project_name: proj.name,
         deadline: proj.deadline
       });
     }
     
-    // Check Tasks
-    const tasks = await db.all('SELECT * FROM project_tasks WHERE project_id = ?', [proj.id]);
+    const tasks = await ProjectTask.find({ project_id: proj._id }).lean();
     for (const task of tasks) {
       const taskNorm = task.title.toLowerCase();
       const taskTokens = tokenize(task.title);
@@ -194,9 +185,9 @@ async function searchContext(query, studentId = 'stu_1') {
           type: 'project_task_match',
           match_level: tMatchType,
           overlap: tOverlapCount,
-          project_id: proj.id,
+          project_id: proj._id,
           project_name: proj.name,
-          task_id: task.id,
+          task_id: task._id,
           task_title: task.title,
           status: task.status,
           assignee: task.assignee

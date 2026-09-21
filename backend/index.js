@@ -3,7 +3,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const multer = require('multer');
-const { getDb } = require('./database');
+const { initDb } = require('./database');
 const { seed } = require('./seed');
 
 const { analyzeImage } = require('./services/perceptionService');
@@ -11,49 +11,45 @@ const { searchContext } = require('./services/contextService');
 const { verifyContext } = require('./services/verificationService');
 const { generateRecommendations } = require('./services/recommendationService');
 const { init: initSync, broadcastUpdate, resetSessions } = require('./services/deviceSyncService');
+const { processTelegramData } = require('./services/telegramService');
+
+const Student = require('./models/Student');
+const Subject = require('./models/Subject');
+const Topic = require('./models/Topic');
+const Material = require('./models/Material');
+const UpcomingItem = require('./models/UpcomingItem');
+const Capture = require('./models/Capture');
+const Recommendation = require('./models/Recommendation');
+const Project = require('./models/Project');
+const ProjectTask = require('./models/ProjectTask');
 
 const app = express();
 const server = http.createServer(app);
 initSync(server);
 
-app.use(cors());
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"] : "*";
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
-// Set up Multer for handling multipart/form-data
 const uploadImage = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'), false);
-    }
-  }
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 const uploadJson = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for JSON
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/json' || file.originalname.endsWith('.json')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JSON files are allowed!'), false);
-    }
-  }
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
-// Health Endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  const mongoose = require('mongoose');
   res.json({
     status: "ok",
-    database: "connected",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     groq: process.env.GROQ_API_KEY ? "configured" : "missing_key_demo_fallback_active"
   });
 });
 
-// Orchestrated endpoint: Image -> Gemini -> Context Engine -> Verification
 app.post('/api/capture/analyze', uploadImage.single('image'), async (req, res) => {
   const startTime = Date.now();
   
@@ -62,27 +58,12 @@ app.post('/api/capture/analyze', uploadImage.single('image'), async (req, res) =
   }
 
   try {
-    console.log(`[${new Date().toISOString()}] Request received: /api/capture/analyze`);
-
-    // 1. Perception Service (Gemini)
-    console.log(`[${new Date().toISOString()}] Perception started...`);
     const { mode, perception } = await analyzeImage(req.file.buffer, req.file.mimetype);
-    console.log(`[${new Date().toISOString()}] Perception completed [Mode: ${mode}]. Confidence: ${perception.confidence}`);
-
-    // 2. Context Engine API (Academic DB)
-    console.log(`[${new Date().toISOString()}] Context search started for raw_text...`);
     const query = perception.raw_text || perception.topic_hint || 'Unknown'; 
     const contextMatches = await searchContext(query, 'stu_1');
-    console.log(`[${new Date().toISOString()}] Context search completed. Matches found: ${contextMatches.length}`);
-
-    // 3. Verification Service
-    console.log(`[${new Date().toISOString()}] Verification started...`);
     const verificationResult = verifyContext(perception, contextMatches);
-    console.log(`[${new Date().toISOString()}] Verification completed. Verified: ${verificationResult.verified}`);
 
     const duration = Date.now() - startTime;
-    console.log(`[${new Date().toISOString()}] Request completed in ${duration}ms\n`);
-
     res.json({
       mode,
       perception: {
@@ -100,58 +81,46 @@ app.post('/api/capture/analyze', uploadImage.single('image'), async (req, res) =
       } : null,
       verification: {
         verified: verificationResult.verified,
-        verificationState: verificationResult.verificationState,
+        state: verificationResult.verificationState,
         confidence: verificationResult.confidence,
         reason: verificationResult.reason,
-        evidence: verificationResult.evidence,
-        changes: verificationResult.changes || null
+        changes: verificationResult.changes || null,
+        evidence: verificationResult.evidence || []
       }
     });
-
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error during analyze:`, err.message);
-    res.status(500).json({ 
-      error: err.message || "AI perception is temporarily unavailable." 
-    });
+    res.status(500).json({ error: "Failed to process image. " + err.message });
   }
 });
 
-const { processTelegramData } = require('./services/telegramService');
+app.post('/api/telegram/import', uploadJson.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No JSON file provided." });
 
-// Orchestrated endpoint for Telegram JSON
-app.post('/api/telegram/analyze', uploadJson.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No JSON file provided." });
-  }
-  
   try {
-    const fileString = req.file.buffer.toString('utf-8');
-    const jsonData = JSON.parse(fileString);
+    const jsonStr = req.file.buffer.toString('utf-8');
+    const parsedData = JSON.parse(jsonStr);
     
-    const telegramResult = await processTelegramData(jsonData);
+    const telegramResult = await processTelegramData(parsedData);
     
-    // Pass extracted items through context and verification
     const categorizedItems = {
       newItems: [],
-      duplicates: [],
       updates: [],
       conflicts: [],
+      duplicates: [],
       uncertain: []
     };
     
     for (const item of telegramResult.extractedItems) {
-      const query = `${item.subject || ''} ${item.activity}`.trim();
-      const contextMatches = await searchContext(query, 'stu_1');
-      
       const perceptionProxy = {
-        raw_text: item.activity,
         confidence: item.confidence,
+        raw_text: item.activity,
         type: item.type,
         target_date: item.deadline,
         target_item: item.activity,
         action_hint: item.action
       };
       
+      const contextMatches = await searchContext(item.activity, 'stu_1');
       const verificationResult = verifyContext(perceptionProxy, contextMatches);
       
       const enrichedItem = {
@@ -173,50 +142,51 @@ app.post('/api/telegram/analyze', uploadJson.single('file'), async (req, res) =>
     });
     
   } catch (err) {
-    console.error("Telegram API Error:", err);
     res.status(500).json({ error: "Failed to process Telegram file. " + err.message });
   }
 });
 
-// Get entire context for a student (UI hydration)
 app.get('/api/student/:id', async (req, res) => {
-  const db = await getDb();
   const studentId = req.params.id;
 
   try {
-    const student = await db.get('SELECT * FROM students WHERE id = ?', studentId);
+    const student = await Student.findById(studentId).lean();
     if (!student) return res.status(404).json({ error: "Student not found" });
 
-    const subjects = await db.all('SELECT * FROM subjects WHERE student_id = ?', [req.params.id]);
+    const subjects = await Subject.find({ student_id: studentId }).lean();
     
     for (const sub of subjects) {
-      sub.topics = await db.all('SELECT * FROM topics WHERE subject_id = ?', [sub.id]);
-      sub.materials = await db.all('SELECT * FROM materials WHERE subject_id = ?', [sub.id]);
-      sub.upcomingItems = await db.all('SELECT * FROM upcoming_items WHERE subject_id = ?', [sub.id]);
+      sub.topics = await Topic.find({ subject_id: sub._id }).lean();
+      sub.materials = await Material.find({ subject_id: sub._id }).lean();
+      sub.upcomingItems = await UpcomingItem.find({ subject_id: sub._id }).lean();
+      // map _id to id for frontend compatibility
+      sub.id = sub._id;
+      sub.topics.forEach(t => t.id = t._id);
+      sub.materials.forEach(m => m.id = m._id);
+      sub.upcomingItems.forEach(u => u.id = u._id);
     }
     
-    // Fetch projects
-    const projects = await db.all('SELECT * FROM projects WHERE student_id = ?', [req.params.id]);
+    const projects = await Project.find({ student_id: studentId }).lean();
     for (const proj of projects) {
-      proj.subjects = await db.all(`
-        SELECT s.* FROM subjects s
-        JOIN project_subjects ps ON s.id = ps.subject_id
-        WHERE ps.project_id = ?
-      `, [proj.id]);
-      proj.members = await db.all('SELECT * FROM project_members WHERE project_id = ?', [proj.id]);
-      proj.tasks = await db.all('SELECT * FROM project_tasks WHERE project_id = ?', [proj.id]);
+      proj.subjects = await Subject.find({ _id: { $in: proj.subjects } }).lean();
+      proj.tasks = await ProjectTask.find({ project_id: proj._id }).lean();
       
       // Calculate progress and risk
       const totalTasks = proj.tasks.length;
       const completedTasks = proj.tasks.filter(t => t.status === 'Completed').length;
       proj.calculatedProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : proj.progress;
       
-      // Basic risk check: deadline approaching + critical tasks incomplete
-      // Fake logic for demo: if deadline has "Sep 2" or "30" and progress < 80, maybe at risk.
       const hasPendingHighPriority = proj.tasks.some(t => t.priority === 'high' && t.status === 'Pending');
       proj.status = hasPendingHighPriority ? 'AT RISK' : 'ON TRACK';
       proj.riskReason = hasPendingHighPriority ? "Critical tasks remain incomplete." : "Project is progressing on schedule.";
+      
+      // map _id to id
+      proj.id = proj._id;
+      proj.tasks.forEach(t => t.id = t._id);
+      if(proj.members) proj.members.forEach(m => m.id = m._id);
     }
+    
+    student.id = student._id;
 
     res.json({ student, subjects, projects });
   } catch (err) {
@@ -224,7 +194,6 @@ app.get('/api/student/:id', async (req, res) => {
   }
 });
 
-// --- Recommendation Engine ---
 app.get('/api/recommendations/:studentId', async (req, res) => {
   try {
     const recs = await generateRecommendations(req.params.studentId);
@@ -234,12 +203,10 @@ app.get('/api/recommendations/:studentId', async (req, res) => {
       recommendations: recs
     });
   } catch (err) {
-    console.error("Error generating recommendations:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Calculate dynamically instead of hardcoded
 app.post('/api/recommendations/recalculate', async (req, res) => {
   const { studentId = 'stu_1' } = req.body;
   try {
@@ -250,44 +217,36 @@ app.post('/api/recommendations/recalculate', async (req, res) => {
   }
 });
 
-// Final accept loop
 app.post('/api/context/accept', async (req, res) => {
   const { studentId = 'stu_1', captureData, pairingCode } = req.body;
-  const db = await getDb();
   
   try {
     if (captureData && captureData.isVerified) {
       if ((captureData.verificationState === 'UPDATE' || captureData.verificationState === 'CONFLICT') && captureData.changes) {
-        // Apply changes to upcoming_items for updates and forced conflicts
           for (const change of captureData.changes) {
             if (change.field === 'date' && captureData.itemId && captureData.itemType !== 'project') {
-              await db.run(`UPDATE upcoming_items SET date = ? WHERE id = ?`, [change.new, captureData.itemId]);
+              await UpcomingItem.updateOne({ _id: captureData.itemId }, { date: change.new });
             } else if (captureData.itemType === 'project_task') {
-              if (change.field === 'status') await db.run(`UPDATE project_tasks SET status = ? WHERE id = ?`, [change.new, captureData.itemId]);
-              if (change.field === 'assignee') await db.run(`UPDATE project_tasks SET assignee = ? WHERE id = ?`, [change.new, captureData.itemId]);
+              if (change.field === 'status') await ProjectTask.updateOne({ _id: captureData.itemId }, { status: change.new });
+              if (change.field === 'assignee') await ProjectTask.updateOne({ _id: captureData.itemId }, { assignee: change.new });
             } else if (captureData.itemType === 'project' && change.field === 'deadline') {
-              await db.run(`UPDATE projects SET deadline = ? WHERE id = ?`, [change.new, captureData.itemId]);
+              await Project.updateOne({ _id: captureData.itemId }, { deadline: change.new });
             }
           }
       } else if (captureData.verificationState === 'NEW') {
-        // Insert a new upcoming item if we have the data
         if (captureData.itemType) {
           const id = `up_new_${Date.now()}`;
-          // In a real app we'd look up subject_id properly, for demo we mock it if it's unknown
-          await db.run(
-            `INSERT INTO upcoming_items (id, subject_id, title, type, date, priority) VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, 'sub_os', captureData.topic || 'New Item', captureData.itemType, captureData.targetDate || 'TBD', 'medium']
-          );
+          await UpcomingItem.create({
+            _id: id, subject_id: 'sub_os', title: captureData.topic || 'New Item', type: captureData.itemType, date: captureData.targetDate || 'TBD', priority: 'medium'
+          });
         }
       } else if (captureData.verificationState === 'VERIFIED') {
-        // Normal topic completion
-        await db.run(`UPDATE topics SET status = 'completed' WHERE name = ?`, [captureData.subtopic || captureData.topic]);
+        await Topic.updateMany({ name: captureData.subtopic || captureData.topic }, { status: 'completed' });
       }
     }
 
     const recs = await generateRecommendations(studentId);
     
-    // Broadcast to laptop if paired
     if (pairingCode) {
       broadcastUpdate(pairingCode, 'CONTEXT_UPDATED', {
         subject: captureData.subject,
@@ -304,10 +263,8 @@ app.post('/api/context/accept', async (req, res) => {
   }
 });
 
-// Batch accept for Telegram
 app.post('/api/telegram/accept', async (req, res) => {
   const { studentId = 'stu_1', items, pairingCode } = req.body;
-  const db = await getDb();
   
   try {
     for (const captureData of items) {
@@ -315,69 +272,57 @@ app.post('/api/telegram/accept', async (req, res) => {
         if ((captureData.verificationState === 'UPDATE' || captureData.verificationState === 'CONFLICT') && captureData.changes) {
           for (const change of captureData.changes) {
             if (change.field === 'date' && captureData.itemId && captureData.itemType !== 'project') {
-              await db.run(`UPDATE upcoming_items SET date = ? WHERE id = ?`, [change.new, captureData.itemId]);
+              await UpcomingItem.updateOne({ _id: captureData.itemId }, { date: change.new });
             } else if (captureData.itemType === 'project_task') {
               const taskId = captureData.itemId;
-              let projectId = null;
-              // Get project id
-              const row = await db.get(`SELECT project_id, title FROM project_tasks WHERE id = ?`, [taskId]);
-              if (row) projectId = row.project_id;
-              
-              if (change.field === 'status') {
-                await db.run(`UPDATE project_tasks SET status = ? WHERE id = ?`, [change.new, taskId]);
-              }
-              if (change.field === 'assignee') {
-                await db.run(`UPDATE project_tasks SET assignee = ? WHERE id = ?`, [change.new, taskId]);
-              }
-              if (change.field === 'date') {
-                await db.run(`UPDATE project_tasks SET deadline = ? WHERE id = ?`, [change.new, taskId]);
-              }
-
-              if (projectId && pairingCode) {
-                // Fetch project to broadcast
-                const proj = await db.get(`SELECT * FROM projects WHERE id = ?`, [projectId]);
-                if (proj) {
-                  const tasks = await db.all(`SELECT * FROM project_tasks WHERE project_id = ?`, [projectId]);
-                  const completed = tasks.filter(t => t.status === 'Completed').length;
-                  const total = tasks.length;
-                  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  
-                  broadcastUpdate(pairingCode, 'PROJECT_UPDATED', {
-                    name: proj.name,
-                    progress: progress,
-                    completedCount: completed,
-                    totalCount: total,
-                    recentTask: row.title
-                  });
+              const task = await ProjectTask.findById(taskId).lean();
+              if(task) {
+                if (change.field === 'status') await ProjectTask.updateOne({ _id: taskId }, { status: change.new });
+                if (change.field === 'assignee') await ProjectTask.updateOne({ _id: taskId }, { assignee: change.new });
+                if (change.field === 'date') await ProjectTask.updateOne({ _id: taskId }, { deadline: change.new });
+                
+                if (task.project_id && pairingCode) {
+                  const proj = await Project.findById(task.project_id).lean();
+                  if (proj) {
+                    const tasks = await ProjectTask.find({ project_id: task.project_id }).lean();
+                    const completed = tasks.filter(t => t.status === 'Completed').length;
+                    const total = tasks.length;
+                    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    
+                    broadcastUpdate(pairingCode, 'PROJECT_UPDATED', {
+                      name: proj.name,
+                      progress: progress,
+                      completedCount: completed,
+                      totalCount: total,
+                      recentTask: task.title
+                    });
+                  }
                 }
               }
             } else if (captureData.itemType === 'project' && change.field === 'deadline') {
-              await db.run(`UPDATE projects SET deadline = ? WHERE id = ?`, [change.new, captureData.itemId]);
+              await Project.updateOne({ _id: captureData.itemId }, { deadline: change.new });
             }
           }
         } else if (captureData.verificationState === 'NEW') {
           if (captureData.itemType) {
             const id = `up_new_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            // Basic mapping logic
             let subId = 'sub_os';
             if (captureData.subject.toLowerCase() === 'dbms') subId = 'sub_dbms';
             if (captureData.subject.toLowerCase() === 'alm') subId = 'sub_alm';
             if (captureData.subject.toLowerCase() === 'soa') subId = 'sub_soa';
             
-            await db.run(
-              `INSERT INTO upcoming_items (id, subject_id, title, type, date, priority, source, source_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [id, subId, captureData.topic || 'New Item', captureData.itemType, captureData.targetDate || 'TBD', 'medium', 'telegram', captureData.sourceMessageIds?.join(',')]
-            );
+            await UpcomingItem.create({
+              _id: id, subject_id: subId, title: captureData.topic || 'New Item', type: captureData.itemType, date: captureData.targetDate || 'TBD', priority: 'medium', source: 'telegram', source_ref: captureData.sourceMessageIds?.join(',')
+            });
           }
         } else if (captureData.verificationState === 'VERIFIED') {
-          await db.run(`UPDATE topics SET status = 'completed' WHERE name = ?`, [captureData.subtopic || captureData.topic]);
+          await Topic.updateMany({ name: captureData.subtopic || captureData.topic }, { status: 'completed' });
         }
       }
     }
 
     const recs = await generateRecommendations(studentId);
     
-    // Broadcast to laptop if paired
     if (pairingCode) {
       broadcastUpdate(pairingCode, 'RECOMMENDATIONS_UPDATED', recs);
       broadcastUpdate(pairingCode, 'TELEGRAM_BATCH_PROCESSED', { count: items.length });
@@ -389,77 +334,69 @@ app.post('/api/telegram/accept', async (req, res) => {
   }
 });
 
-// Mark a task/item as complete
 app.post('/api/action/complete', async (req, res) => {
   const { type, id, studentId = 'stu_1', pairingCode, actionType = 'complete' } = req.body;
-  const db = await getDb();
   
   try {
     if (type === 'project_task') {
       const newStatus = actionType === 'uncomplete' ? 'Pending' : 'Completed';
-      await db.run(`UPDATE project_tasks SET status = ? WHERE id = ?`, [newStatus, id]);
+      await ProjectTask.updateOne({ _id: id }, { status: newStatus });
       
       if (pairingCode) {
-        const row = await db.get(`SELECT project_id, title FROM project_tasks WHERE id = ?`, [id]);
-        if (row) {
-          const proj = await db.get(`SELECT * FROM projects WHERE id = ?`, [row.project_id]);
+        const task = await ProjectTask.findById(id).lean();
+        if (task) {
+          const proj = await Project.findById(task.project_id).lean();
           if (proj) {
-            const tasks = await db.all(`SELECT * FROM project_tasks WHERE project_id = ?`, [row.project_id]);
+            const tasks = await ProjectTask.find({ project_id: task.project_id }).lean();
             const completed = tasks.filter(t => t.status === 'Completed').length;
             const total = tasks.length;
             const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
             
-            // Also update project progress in DB
-            await db.run(`UPDATE projects SET progress = ? WHERE id = ?`, [progress, row.project_id]);
+            await Project.updateOne({ _id: task.project_id }, { progress });
 
             broadcastUpdate(pairingCode, 'PROJECT_UPDATED', {
               name: proj.name,
               progress: progress,
               completedCount: completed,
               totalCount: total,
-              recentTask: row.title + (actionType === 'uncomplete' ? " (Reopened)" : " (Completed)")
+              recentTask: task.title + (actionType === 'uncomplete' ? " (Reopened)" : " (Completed)")
             });
           }
         }
       }
     } else if (type === 'topic') {
-      await db.run(`UPDATE topics SET status = 'completed' WHERE id = ?`, [id]);
+      await Topic.updateOne({ _id: id }, { status: 'completed' });
     } else if (type === 'upcoming_item') {
-      // For upcoming items, maybe we just delete them or mark them if we had a status field.
-      // We don't have a status field for upcoming_items, so let's delete it so it disappears from the list.
-      await db.run(`DELETE FROM upcoming_items WHERE id = ?`, [id]);
+      await UpcomingItem.deleteOne({ _id: id });
     }
 
-    // Always recalculate recommendations on task completion
     const recs = await generateRecommendations(studentId);
     if (pairingCode) {
       broadcastUpdate(pairingCode, 'RECOMMENDATIONS_UPDATED', recs);
-    }
-    
-    // Broadcast a general context update to trigger a refetch on the laptop if needed
-    if (pairingCode) {
       broadcastUpdate(pairingCode, 'CONTEXT_REFRESH_NEEDED', { type, id });
     }
     
     res.json({ success: true, recommendations: recs });
   } catch (err) {
-    console.error("Action complete error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-// Demo Reset Mechanism
+
 app.post('/api/demo/reset', async (req, res) => {
   try {
     await seed();
     resetSessions();
     res.json({ success: true, message: "Demo reset completed." });
   } catch (err) {
-    console.error("Demo reset error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 const PORT = process.env.PORT || 8000;
-server.listen(PORT, () => {
-  console.log(`Context Engine Backend & Socket.IO running on http://localhost:${PORT}`);
+initDb().then(() => {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Nexora Backend running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error("Failed to start server", err);
 });
